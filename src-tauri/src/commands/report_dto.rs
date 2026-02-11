@@ -1,9 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::{Path, PathBuf};
 use thiserror::Error;
-use toml::Value;
-use tauri::command;
 
 // 自定义错误类型
 #[derive(Error, Debug)]
@@ -59,5 +55,6 @@ pub struct DynamicConfig {
 
     // 计算环境：动态检查项（空则删除）
     pub 收费通用要求_计算环境: Option<serde_json::Value>, // { "XX交换机": { "check1": "结果", ... } }
-    pub ETC通用要求_计算环境: Option<serde_json::Value>,
+    pub etc通用要求_计算环境: Option<serde_json::Value>,
 }
+

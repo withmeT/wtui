@@ -2,37 +2,52 @@
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 
-const greetMsg = ref("");
-const name = ref("");
+const createtempMsg = ref("");
+const file_name = ref("");
 
-async function greet() {
+const loadMsg = ref("");
+const load_name = ref("");
+
+const tempMsg = ref("");
+const temp_name = ref("");
+
+async function create_temp() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
+  createtempMsg.value = await invoke("create_temp", { name: file_name.value });
 }
+
+async function load_conf() {
+  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+  loadMsg.value = await invoke("load_conf", { name: load_name.value });
+}
+
+async function load_template_toml() {
+  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+  tempMsg.value = await invoke("load_template_toml", { name: temp_name.value });
+}
+
 </script>
 
 <template>
   <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
-
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
-
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
+    <form class="row" @submit.prevent="create_temp">
+      <input id="greet-input" v-model="file_name" placeholder="Enter a name..." />
+      <button type="submit">create_temp</button>
     </form>
-    <p>{{ greetMsg }}</p>
+    <p>{{ createtempMsg }}</p>
+
+    <form class="row" @submit.prevent="load_conf">
+      <input id="greet-input" v-model="load_name" placeholder="Enter a name..." />
+      <button type="submit">load_conf</button>
+    </form>
+    <p>{{ loadMsg }}</p>
+
+    <form class="row" @submit.prevent="load_template_toml">
+      <input id="greet-input" v-model="temp_name" placeholder="Enter a name..." />
+      <button type="submit">load_template_toml</button>
+    </form>
+    <p>{{ tempMsg }}</p>
+
   </main>
 </template>
 

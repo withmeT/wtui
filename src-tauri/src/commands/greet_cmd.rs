@@ -1,5 +1,5 @@
 use crate::config::template::create_template;
-
+use crate::config::template::load_config;
 #[tauri::command]
 pub fn greet(name: &str) -> String {
     match create_template(name) {
