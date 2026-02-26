@@ -1,175 +1,181 @@
-<script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
-
-const createtempMsg = ref("");
-const file_name = ref("");
-
-const loadMsg = ref("");
-const load_name = ref("");
-
-const tempMsg = ref("");
-const temp_name = ref("");
-
-async function create_temp() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  createtempMsg.value = await invoke("create_temp", { name: file_name.value });
-}
-
-async function load_conf() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  loadMsg.value = await invoke("load_conf", { name: load_name.value });
-}
-
-async function load_template_toml() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  tempMsg.value = await invoke("load_template_toml", { name: temp_name.value });
-}
-
-</script>
-
 <template>
-  <main class="container">
-    <form class="row" @submit.prevent="create_temp">
-      <input id="greet-input" v-model="file_name" placeholder="Enter a name..." />
-      <button type="submit">create_temp</button>
-    </form>
-    <p>{{ createtempMsg }}</p>
+  <div class="app-container">
+    <!-- 顶部标题栏 -->
+    <AppHeader
+      v-model:searchText="searchText"
+      v-model:isSearchFocus="isSearchFocus"
+      @search="handleSearch"
+    />
 
-    <form class="row" @submit.prevent="load_conf">
-      <input id="greet-input" v-model="load_name" placeholder="Enter a name..." />
-      <button type="submit">load_conf</button>
-    </form>
-    <p>{{ loadMsg }}</p>
+    <!-- 主内容区 -->
+    <div class="main-content">
+      <!-- 左侧导航栏 -->
+      <AppSidebar
+        :navList="navList"
+        v-model:activeNavId="activeNavId"
+      />
 
-    <form class="row" @submit.prevent="load_template_toml">
-      <input id="greet-input" v-model="temp_name" placeholder="Enter a name..." />
-      <button type="submit">load_template_toml</button>
-    </form>
-    <p>{{ tempMsg }}</p>
+      <!-- 右侧内容区 -->
+      <main class="content-area">
+        <!-- 搜索结果提示 -->
+        <div v-if="searchResult" class="search-tip" :class="searchTipClass">
+          <span class="tip-icon">{{ getTipIcon() }}</span>
+          <span class="tip-text">{{ cleanText(`搜索关键词：${searchText} → ${searchResult}`) }}</span>
+        </div>
 
-  </main>
+        <!-- 内容切换过渡 -->
+        <transition name="content-fade">
+          <div class="content-card" :key="activeNavId">
+            <!-- 定级备案 -->
+            <LevelFiling v-if="activeNavId === 1" />
+
+            <!-- 文件格式转换 -->
+            <FileConvert v-else-if="activeNavId === 2" />
+
+            <!-- 端口扫描 -->
+            <PortScan v-else-if="activeNavId === 3" />
+
+            <!-- 并网检测 -->
+            <GridCheck v-else-if="activeNavId === 4" />
+          </div>
+
+
+        </transition>
+      </main>
+    </div>
+  </div>
 </template>
 
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { AppHeader, AppSidebar } from './components/layout';
+import LevelFiling from './components/business/level-filing/LevelFiling.vue';
+import FileConvert from './components/business/file-convert/FileConvert.vue';
+import PortScan from './components/business/port-scan/PortScan.vue';
+import GridCheck from './components/business/grid-check/GridCheck.vue';
+import type { NavItem } from './types';
+import { cleanText, getSearchTipClass } from './utils/common';
+
+// 导航列表数据
+const navList = ref<NavItem[]>([
+  { id: 1, name: '定级备案', icon: '📊' },
+  { id: 2, name: '文件格式转换', icon: '📁' },
+  { id: 3, name: '端口扫描', icon: '🔍' },
+  { id: 4, 
+    name: '并网检测', 
+    icon: '📅' }
+]);
+
+// 搜索相关
+const searchText = ref('');
+const isSearchFocus = ref(false);
+const searchResult = ref('');
+const activeNavId = ref(4); // 默认选中并网检测
+
+// 计算搜索提示样式
+const searchTipClass = computed(() => {
+  return getSearchTipClass(searchResult.value);
+});
+
+// 获取提示图标
+const getTipIcon = (): string => {
+  if (!searchResult.value) return '';
+  if (searchResult.value.includes('找到')) return '✅';
+  if (searchResult.value.includes('请输入')) return '⚠️';
+  return '❌';
+};
+
+// 处理搜索
+const handleSearch = () => {
+  if (!searchText.value.trim()) {
+    searchResult.value = '请输入搜索关键词';
+    return;
+  }
+
+  // 模拟搜索逻辑
+  const lowerSearchText = searchText.value.toLowerCase().trim();
+  const matchedNav = navList.value.find(item => 
+    item.name.toLowerCase().includes(lowerSearchText)
+  );
+
+  if (matchedNav) {
+    activeNavId.value = matchedNav.id;
+    searchResult.value = `找到匹配功能：${matchedNav.name}`;
+  } else {
+    searchResult.value = '未找到匹配的功能';
+  }
+
+  // 3秒后隐藏搜索提示
+  setTimeout(() => {
+    searchResult.value = '';
+  }, 3000);
+};
+</script>
+
 <style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
-<style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
+.app-container {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  height: 100vh;
+  width: 100%;
+  background: #f3f4f6;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
+.main-content {
   display: flex;
-  justify-content: center;
+  flex: 1;
+  overflow: hidden;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+.content-area {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-a:hover {
-  color: #535bf2;
+.search-tip {
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
 }
 
-h1 {
-  text-align: center;
+.search-tip-success {
+  background: #dcfce7;
+  color: #16a34a;
 }
 
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+.search-tip-warning {
+  background: #fffbeb;
+  color: #d97706;
 }
 
-button {
-  cursor: pointer;
+.search-tip-error {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+.tip-icon {
+  font-size: 16px;
 }
 
-input,
-button {
-  outline: none;
+.content-card {
+  width: 100%;
+  height: 100%;
 }
 
-#greet-input {
-  margin-right: 5px;
+/* 过渡动画 */
+.content-fade-enter-from,
+.content-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+.content-fade-enter-active,
+.content-fade-leave-active {
+  transition: all 0.3s ease;
 }
-
 </style>

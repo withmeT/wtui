@@ -14,6 +14,9 @@ pub fn run() {
             commands::report_cmd::create_temp,
             commands::report_cmd::load_conf,
             commands::report_cmd::load_template_toml,
+            commands::report_cmd::save_dynamic_config,
+            commands::report_cmd::load_dynamic_config,
+            commands::report_cmd::submit_grid_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
