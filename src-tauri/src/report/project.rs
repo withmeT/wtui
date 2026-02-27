@@ -3,16 +3,35 @@
 use crate::report::template::TemplateError;
 use crate::report::template::{Checklist, Config, ProjectToml, TemplateConfig};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-const PROJECTS_DIR: &str = "projects";
-
-fn projects_dir() -> PathBuf {
-    PathBuf::from(PROJECTS_DIR)
+fn projects_dir(base_dir: &Path) -> PathBuf {
+    base_dir.join("projects")
 }
 
-pub fn project_path(name: &str) -> PathBuf {
-    projects_dir().join(format!("{}.toml", name))
+fn sanitize_filename(input: &str) -> String {
+    // Windows 保留字符：<>:"/\|?* 以及控制字符
+    let mut s = input
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect::<String>();
+
+    // 去掉首尾空白，并避免以 '.' 结尾（Windows 不允许）
+    s = s.trim().trim_end_matches('.').to_string();
+    if s.is_empty() {
+        "untitled".to_string()
+    } else {
+        s
+    }
+}
+
+pub fn project_path(base_dir: &Path, name: &str) -> PathBuf {
+    let safe = sanitize_filename(name);
+    projects_dir(base_dir).join(format!("{}.toml", safe))
 }
 
 /// 从 template.toml 内容解析 Config
@@ -40,13 +59,14 @@ fn parse_empty_checklist(toml_content: &str) -> Result<Checklist, TemplateError>
 
 /// 创建新项目：template.toml 结构 + 收费.toml 的测评项（结果为空）
 pub fn create_project_toml(
+    base_dir: &Path,
     name: &str,
     template_toml_content: &str,
     checklist_toml_content: &str,
 ) -> Result<PathBuf, TemplateError> {
-    let dir = projects_dir();
+    let dir = projects_dir(base_dir);
     fs::create_dir_all(&dir)?;
-    let path = project_path(name);
+    let path = project_path(base_dir, name);
     let config = parse_template_config(template_toml_content)?;
     let checklist = parse_empty_checklist(checklist_toml_content)?;
     let project = ProjectToml {
@@ -60,13 +80,14 @@ pub fn create_project_toml(
 
 /// 保存项目：写入 Config + Checklist 到 projects/{name}.toml
 pub fn save_project_toml(
+    base_dir: &Path,
     name: &str,
     config: Config,
     checklist: Checklist,
 ) -> Result<PathBuf, TemplateError> {
-    let dir = projects_dir();
+    let dir = projects_dir(base_dir);
     fs::create_dir_all(&dir)?;
-    let path = project_path(name);
+    let path = project_path(base_dir, name);
     let project = ProjectToml {
         config,
         checklist: Some(checklist),
@@ -78,7 +99,14 @@ pub fn save_project_toml(
 
 /// 加载项目：返回 Config + Checklist
 pub fn load_project_toml(name: &str) -> Result<(Config, Option<Checklist>), TemplateError> {
-    let path = project_path(name);
+    load_project_toml_at(&PathBuf::from("."), name)
+}
+
+pub fn load_project_toml_at(
+    base_dir: &Path,
+    name: &str,
+) -> Result<(Config, Option<Checklist>), TemplateError> {
+    let path = project_path(base_dir, name);
     if !path.exists() {
         return Err(TemplateError::TemplateNotFound(format!(
             "项目不存在: {}",
@@ -92,8 +120,8 @@ pub fn load_project_toml(name: &str) -> Result<(Config, Option<Checklist>), Temp
 }
 
 /// 列出已有项目（projects/*.toml 文件名，不含扩展名）
-pub fn list_projects() -> Result<Vec<String>, TemplateError> {
-    let dir = projects_dir();
+pub fn list_projects(base_dir: &Path) -> Result<Vec<String>, TemplateError> {
+    let dir = projects_dir(base_dir);
     if !dir.exists() {
         return Ok(vec![]);
     }
@@ -109,4 +137,39 @@ pub fn list_projects() -> Result<Vec<String>, TemplateError> {
         .collect();
     names.sort();
     Ok(names)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn create_and_load_project_roundtrip() {
+        let base_dir = std::env::temp_dir().join(format!("wtui-test-{}", {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        }));
+        let _ = fs::remove_dir_all(&base_dir);
+        fs::create_dir_all(&base_dir).expect("create temp base dir");
+
+        let template = include_str!("../../resources/template.toml");
+        let checklist = include_str!("../../resources/收费.toml");
+
+        let name = "2026/02/27:测试项目";
+        let path = create_project_toml(&base_dir, name, template, checklist).expect("create project");
+        assert!(path.exists(), "project file should exist");
+
+        let (config, checklist_opt) = load_project_toml_at(&base_dir, name).expect("load project");
+        let c = checklist_opt.expect("checklist should exist");
+
+        assert!(
+            config.基础信息.is_object(),
+            "基础信息 should be an object json"
+        );
+        assert!(!c.items.is_empty(), "checklist items should not be empty");
+    }
 }

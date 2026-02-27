@@ -65,7 +65,7 @@ interface Props {
   templateData: TemplateData;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 </script>
 
 <style scoped>

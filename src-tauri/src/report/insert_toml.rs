@@ -229,13 +229,15 @@ impl ConfigBuilder {
         结果: &str,     // 如 "符合"
         符合情况: &str, // 如 "已配置RBAC"
     ) -> Self {
-        self.config.收费通用要求.计算环境.insert(
-            检查项.to_string(),
-            CheckDetail {
-                结果: 结果.to_string(),
-                符合情况: 符合情况.to_string(),
-            },
-        );
+        let v = json!({
+            "结果": 结果,
+            "符合情况": 符合情况,
+        });
+        if let Some(obj) = self.config.收费通用要求.计算环境.as_object_mut() {
+            obj.insert(检查项.to_string(), v);
+        } else {
+            self.config.收费通用要求.计算环境 = json!({ 检查项: v });
+        }
         self
     }
 
@@ -246,13 +248,15 @@ impl ConfigBuilder {
         结果: &str,
         符合情况: &str,
     ) -> Self {
-        self.config.etc通用要求.计算环境.insert(
-            检查项.to_string(),
-            CheckDetail {
-                结果: 结果.to_string(),
-                符合情况: 符合情况.to_string(),
-            },
-        );
+        let v = json!({
+            "结果": 结果,
+            "符合情况": 符合情况,
+        });
+        if let Some(obj) = self.config.etc通用要求.计算环境.as_object_mut() {
+            obj.insert(检查项.to_string(), v);
+        } else {
+            self.config.etc通用要求.计算环境 = json!({ 检查项: v });
+        }
         self
     }
 

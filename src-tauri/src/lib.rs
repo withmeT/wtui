@@ -22,6 +22,7 @@ pub fn run() {
             commands::report_cmd::save_project,
             commands::report_cmd::load_project,
             commands::report_cmd::list_project_names,
+            commands::report_cmd::generate_grid_check_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

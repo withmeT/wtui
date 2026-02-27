@@ -186,8 +186,8 @@ pub struct CommonRequirements {
     #[serde(default = "default_object")]
     pub 区域边界: serde_json::Value,
 
-    #[serde(default)]
-    pub 计算环境: std::collections::HashMap<String, CheckDetail>,
+    #[serde(rename = "计算环境", default = "default_object")]
+    pub 计算环境: serde_json::Value,
 
     #[serde(flatten)]
     pub extra: serde_json::Value,
@@ -199,7 +199,7 @@ impl Default for CommonRequirements {
             物理环境: json!({}),
             通信网络: json!({}),
             区域边界: json!({}),
-            计算环境: std::collections::HashMap::new(),
+            计算环境: json!({}),
             extra: json!({}),
         }
     }

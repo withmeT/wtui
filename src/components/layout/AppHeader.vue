@@ -9,11 +9,11 @@
         v-model="localSearchText"
         type="text"
         class="search-input"
-        :class="{ 'search-input-focus': isSearchFocus }"
+        :class="{ 'search-input-focus': localIsSearchFocus }"
         placeholder="搜索功能/关键词..."
         @keyup.enter="handleSearch"
-        @focus="isSearchFocus = true"
-        @blur="isSearchFocus = false"
+        @focus="localIsSearchFocus = true"
+        @blur="localIsSearchFocus = false"
       />
       <button class="search-btn" @click="handleSearch">
         <span class="search-icon">🔍</span>

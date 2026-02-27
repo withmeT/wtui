@@ -72,6 +72,14 @@
           <span v-if="!isSubmitting">另存为 JSON</span>
           <span v-if="isSubmitting">提交中...</span>
         </button>
+        <button
+          class="submit-btn outline"
+          @click="handleGenerateReport"
+          :disabled="isSubmitting"
+        >
+          <span v-if="!isSubmitting">生成报告（HTML）</span>
+          <span v-if="isSubmitting">生成中...</span>
+        </button>
       </div>
 
       <!-- 提交结果提示 -->
@@ -90,6 +98,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import BaseInfo from './modules/BaseInfo.vue';
 import AssetInfo from './modules/AssetInfo.vue';
 import CheckRequirement from './modules/CheckRequirement.vue';
@@ -251,6 +260,35 @@ async function handleSaveToProject() {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     submitResult.value = { type: 'error', message: `保存失败：${msg}` };
+  } finally {
+    isSubmitting.value = false;
+    setTimeout(() => { submitResult.value = null; }, 3000);
+  }
+}
+
+// 生成报告（HTML）：将当前表单数据渲染为离线报告文件
+async function handleGenerateReport() {
+  try {
+    isSubmitting.value = true;
+    submitResult.value = null;
+
+    const name = currentProjectName.value || templateData.value.基础信息.编号 || 'grid_check_report';
+    const payload = {
+      template_data: templateData.value,
+      checklist: checklist.value,
+    };
+
+    const path = await invoke<string>('generate_grid_check_report', { name, payload });
+
+    submitResult.value = { type: 'success', message: `报告已生成：${path}` };
+    try {
+      await openPath(path);
+    } catch {
+      // ignore
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    submitResult.value = { type: 'error', message: `生成报告失败：${msg}` };
   } finally {
     isSubmitting.value = false;
     setTimeout(() => { submitResult.value = null; }, 3000);
