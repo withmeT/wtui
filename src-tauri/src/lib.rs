@@ -17,6 +17,11 @@ pub fn run() {
             commands::report_cmd::save_dynamic_config,
             commands::report_cmd::load_dynamic_config,
             commands::report_cmd::submit_grid_check,
+            commands::report_cmd::load_checklist,
+            commands::report_cmd::create_project,
+            commands::report_cmd::save_project,
+            commands::report_cmd::load_project,
+            commands::report_cmd::list_project_names,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,7 +1,7 @@
 // temp.rs
 
 use thiserror::Error;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::json;
 
 #[derive(Error, Debug)]
@@ -226,7 +226,37 @@ pub struct Checklist {
     pub items: Vec<ChecklistItem>,
 }
 
+/// 支持两种 TOML 写法：单表 [checklist] 或 数组 [[checklist]]
+fn deserialize_checklist_vec<'de, D>(deserializer: D) -> std::result::Result<Vec<Checklist>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(Checklist),
+        Many(Vec<Checklist>),
+    }
+    let one_or_many = OneOrMany::deserialize(deserializer)?;
+    Ok(match one_or_many {
+        OneOrMany::One(c) => vec![c],
+        OneOrMany::Many(v) => v,
+    })
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TemplateConfig {
+    #[serde(deserialize_with = "deserialize_checklist_vec")]
     pub checklist: Vec<Checklist>,
+}
+
+/// 项目文件：template.toml 式 Config + 测评清单（可序列化为一个 TOML）
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProjectToml {
+    #[serde(flatten)]
+    pub config: Config,
+    /// 测评项及填写结果，与 收费.toml 同构
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checklist: Option<Checklist>,
 }

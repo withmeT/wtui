@@ -54,9 +54,11 @@
               class="form-control"
             >
               <option value="">请选择结论</option>
+              <option value="视同符合">视同符合</option>
               <option value="符合">符合</option>
               <option value="部分符合">部分符合</option>
               <option value="不符合">不符合</option>
+              <option value="不适用">不适用</option>
             </select>
           </div>
         </div>

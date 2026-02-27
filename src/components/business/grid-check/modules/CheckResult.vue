@@ -60,6 +60,14 @@
             <span class="stat-value">{{ nonConformItemCount }}</span>
           </div>
           <div class="stat-item">
+            <span class="stat-label">视同符合项数：</span>
+            <span class="stat-value">{{ deemedConformItemCount }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">不适用项数：</span>
+            <span class="stat-value">{{ notApplicableItemCount }}</span>
+          </div>
+          <div class="stat-item">
             <span class="stat-label">未填写结论项数：</span>
             <span class="stat-value">{{ unFilledItemCount }}</span>
           </div>
@@ -95,6 +103,14 @@ const partialConformItemCount = computed(() => {
 
 const nonConformItemCount = computed(() => {
   return props.checklist.items.filter(i => i.conclusion === '不符合').length;
+});
+
+const deemedConformItemCount = computed(() => {
+  return props.checklist.items.filter(i => i.conclusion === '视同符合').length;
+});
+
+const notApplicableItemCount = computed(() => {
+  return props.checklist.items.filter(i => i.conclusion === '不适用').length;
 });
 
 const unFilledItemCount = computed(() => {

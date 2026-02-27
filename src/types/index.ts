@@ -27,7 +27,7 @@ export interface CheckItem {
   judge_condition: string;
   compensation_measure: string;
   detection_result: string;
-  conclusion: '' | '符合' | '部分符合' | '不符合';
+  conclusion: '' | '视同符合' | '符合' | '部分符合' | '不符合' | '不适用';
 }
 
 // 测评清单类型

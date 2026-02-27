@@ -7,6 +7,24 @@
     <div class="card-content">
       <p class="card-main-desc">并网等保合规性检测，基于标准化模板自动生成检测报告</p>
 
+      <!-- 项目 TOML：创建 / 加载 / 当前项目 -->
+      <div class="project-bar">
+        <div class="project-row">
+          <span class="project-label">当前项目：</span>
+          <select v-model="currentProjectName" class="project-select">
+            <option value="">（未选择）</option>
+            <option v-for="n in projectList" :key="n" :value="n">{{ n }}</option>
+          </select>
+          <button type="button" class="btn-secondary" @click="handleLoadProject" :disabled="!currentProjectName">加载</button>
+        </div>
+        <div class="project-row">
+          <span class="project-label">新建项目：</span>
+          <input v-model="newProjectName" type="text" class="project-input" placeholder="输入项目名称（如 2025-XX站）" />
+          <button type="button" class="btn-primary" @click="handleCreateProject" :disabled="!newProjectName.trim()">创建项目</button>
+        </div>
+        <p v-if="projectMessage" class="project-message" :class="projectMessageType">{{ projectMessage }}</p>
+      </div>
+
       <!-- 检测模板模块切换 -->
       <div class="module-tabs">
         <div
@@ -27,19 +45,31 @@
       <AssetInfo v-if="activeModule === 'asset'" :templateData="templateData" />
 
       <!-- 检测要求模块 -->
-      <CheckRequirement v-if="activeModule === 'check'" :checklist="checklist" />
+      <div v-if="activeModule === 'check'">
+        <p v-if="checklistLoading" class="checklist-loading">加载测评项中...</p>
+        <p v-else-if="checklistError" class="checklist-error">{{ checklistError }}</p>
+        <CheckRequirement v-else :checklist="checklist" />
+      </div>
 
       <!-- 检测结果模块 -->
       <CheckResult v-if="activeModule === 'result'" :templateData="templateData" :checklist="checklist" />
 
-      <!-- 提交按钮 -->
+      <!-- 保存到项目 TOML / 提交 -->
       <div class="submit-btn-wrapper">
         <button
           class="submit-btn"
+          @click="handleSaveToProject"
+          :disabled="isSubmitting || !currentProjectName"
+        >
+          <span v-if="!isSubmitting">保存到项目 TOML</span>
+          <span v-if="isSubmitting">保存中...</span>
+        </button>
+        <button
+          class="submit-btn outline"
           @click="handleSubmit"
           :disabled="isSubmitting"
         >
-          <span v-if="!isSubmitting">提交检测模板</span>
+          <span v-if="!isSubmitting">另存为 JSON</span>
           <span v-if="isSubmitting">提交中...</span>
         </button>
       </div>
@@ -58,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import BaseInfo from './modules/BaseInfo.vue';
 import AssetInfo from './modules/AssetInfo.vue';
@@ -123,57 +153,113 @@ const templateData = ref<TemplateData>({
   }
 });
 
-// 完整测评项数据
-const checklist = ref<CheckList>({
-  "title": "联网收费系统省域系统并网接入网络安全检测规程 - 收费站通用要求及物联网安全扩展要求",
-  "version": "V1.0",
-  "items": [
-   {"id":1,"is_important":true,"requirement_item":"安全物理环境","requirement_subitem":"机房物理访问控制","requirement_detail":"*机房出入应对外来人员进行身份核实，并记录外来人员身份信息、联系电话、接待人、时间等详细情况。","judge_condition":"满足条件（任意条件）：\n1.机房无电子或机械门锁，机房入口也无专人值守。\n2.办公或外来人员可随意进出机房，无任何管控、监控措施。","compensation_measure":"机房配备24小时专人值守或配备摄像头实时监控，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":2,"is_important":true,"requirement_item":"安全通信网络","requirement_subitem":"网络构架","requirement_detail":"a) *应通过交换机或防火墙等设施至少划分收费业务、运维管理、设备接入等不同的网络区域，并为ETC门架系统接入单独设置网络区域，按照便捷管理和集约管控的原则为各网络区域分配地址，通过有效措施对各网络区域进行技术隔离。","judge_condition":"满足条件（任意条件）：\n1.收费业务和设备系统接入在同一网络区域。\n2.收费业务和运维管理在同一区域。\n3.未单独划分ETC门架系统接入区域。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":3,"is_important":false,"requirement_item":"安全通信网络","requirement_subitem":"网络构架","requirement_detail":"b) 收费站和全国中心、省联网中心、区域/路段中心的通信传输主干链路的通信和安全防护等关键设备应采用双机备份。","judge_condition":"满足条件：\n与全国中心、省联网中心、区域/路段中心、ETC门架系统连接的交换机、防火墙等未采用双机备份。","compensation_measure":"具备通信线路冗余及完整的网络通道，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":4,"is_important":true,"requirement_item":"安全通信网络","requirement_subitem":"网络构架","requirement_detail":"c) *严禁在收费站区域内开展收费专网与互联网数据交互的业务应用。","judge_condition":"存在收费专网与互联网数据交互的业务应用，无论是否采用双防火墙、网闸等隔离措施。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":5,"is_important":false,"requirement_item":"安全通信网络","requirement_subitem":"通信传输","requirement_detail":"a) 应至少采用校验技术保证收费站与全国中心、省联网中心、路段中心间通信过程中的数据完整性，根据需要还可采用密码技术保证通信过程中的数据完整性；密码算法应符合国家密码管理局相关规范要求。","judge_condition":"满足条件（任意条件）：\n1.在部省、省站的通信过程中未配备SSL网关、IP Sec VPN、SSL VPN或其他具有相同功能的设备，且未采用校验技术进行完整性保护。\n2.使用AES、RSA、3DES等非国密算法进行通信加密。","compensation_measure":"应用层采用完整性校验措施，密码技术满足国家密码管理局要求。可视同符合。","detection_result":"","conclusion":""},
-    {"id":6,"is_important":false,"requirement_item":"安全通信网络","requirement_subitem":"通信传输","requirement_detail":"b) 应采用密码技术保证收费站和全国中心、省联网中心、路段中心间通信过程中的保密性。","judge_condition":"满足条件（任意条件）：\n1.在收费站与全国中心、省联网中心、路段中心间通信过程中未配备SSL网关、IP Sec VPN、SSL VPN或其他具有相同功能的设备。\n2.使用AES、RSA、3DES等非国密算法进行通信加密。","compensation_measure":"应用层采用保密保护措施，密码技术满足国家密码管理局要求，可视同符合。","detection_result":"","conclusion":""},
-    {"id":7,"is_important":true,"requirement_item":"安全区域边界","requirement_subitem":"边界保护","requirement_detail":"a) *应保证跨越网络区域边界的访问和数据流通过边界设备提供的受控接口进行通信。","judge_condition":"满足条件（任意条件）：\n1.网络边界无任何访问控制措施。\n2.网络边界访问控制措施配置不当，存在较大安全隐患。\n3.网络边界控制措施失效，无法起到访问控制功能。","compensation_measure":"边界访问控制设备不一定要是防火墙，只要是能实现相关的访问控制功能，形态为专用设备，且有相关功能能够提供相应的检测报告，可视为等效措施，判符合。如通过路由器、交换机或者带ACL功能的负载均衡器等设备实现，可根据系统重要程度，设备性能压力等因素，可视同符合。","detection_result":"","conclusion":""},
-    {"id":8,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"边界保护","requirement_detail":"b) 应能够对非授权设备私自联到收费网络的行为进行检查或限制。","judge_condition":"满足条件（任意条件）：\na) 物理、网络等环境不可控，存在非授权接入可能。\nb) 可非授权接入网络重要区域，如服务器区、管理网段等。\nc) 无任何控制措施，控制措施包括限制、检查、阻断等。","compensation_measure":"如接入的区域有严格的物理访问控制，采用静态IP地址分配，关闭不必要的接入端口，IP-MAC地址绑定等措施的，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":9,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"边界保护","requirement_detail":"c) 能够对收费网终端或用户非授权连接到外部网络的行为进行检查或限制。","judge_condition":"满足条件（任意条件）：\n未配备终端管控系统、网络准入系统导致如下情况：\na) 物理、网络等环境不可控，存在非授权外联可能。\nb) 重要核心管理终端、重要业务终端等关键设备存在私自外联互联网可能。\nc) 无任何控制措施，控制措施包括限制、检查、阻断等。\nd) 内部人员可旁路、绕过边界访问控制设备私自外联互联网。","compensation_measure":"如物理、网络等环境可控，非授权外联可能较小，相关设备上的USB接口、无线网卡等有管控措施，对网络异常进行监控及日志审查，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":10,"is_important":true,"requirement_item":"安全区域边界","requirement_subitem":"边界保护","requirement_detail":"d) *收费专网一般应禁止无线局域网络的使用，如使用，应采用证书认证技术确保移动设备的可信接入。","judge_condition":"满足条件（同时）：\na) 存在和收费专网互联的无线网络。\nb) 未采用有效认证技术确保移动设备的可信接入。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":11,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"访问控制","requirement_detail":"a) 应在划定的网络区域边界防护设备上（如防火墙）根据访问控制策略设置访问控制规则，默认情况下除允许通信外受控接口拒绝所有通信。","judge_condition":"满足条件（任意条件）：\n1.网络边界无任何访问控制措施。\n2.网络边界访问控制措施配置不当，存在较大安全隐患。\n3.网络边界控制措施失效，无法起到访问控制功能。","compensation_measure":"可通过具备ACL功能的路由器、交换机等设备实现访问控制。则视同符合。","detection_result":"","conclusion":""},
-    {"id":12,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"访问控制","requirement_detail":"b) 应能根据会话状态信息为数据流提供明确的允许/拒绝访问的能力，控制粒度为传输层端口级，对源地址、目的地址、源端口、目的端口和协议等进行检查，确定是否允许数据包进出该区域边界。","judge_condition":"访问控制列表未达到传输层端口级访问控制。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":13,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"入侵防范","requirement_detail":"a) 应在网络中进行检测从外部发起的网络攻击行为。","judge_condition":"关键网络节点如收费专网与监控网等外部网络处无防火墙等从外部网络发起的攻击行为进行检测。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":14,"is_important":true,"requirement_item":"安全区域边界","requirement_subitem":"入侵防范","requirement_detail":"b) *应在网络中进行检测从内部发起的网络攻击行为。","judge_condition":"关键网络节点(如核心心服务器区与其他内部网络区域边界处) 未采取任何防护措施，无法检测从内部发起的网络攻击行为。","compensation_measure":"如网络设备设置较严格的访问控制策略，且发生内部网络攻击可能性较小，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":15,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"身份鉴别","requirement_detail":"a) 应对登录网络、服务器、中间件、数据库、终端及应用等计算环境的用户进行身份标识和鉴别，且保证用户名具有唯一性。","judge_condition":"满足条件：\n登录网络、服务器、中间件、数据库、终端及应用等计算环境的用户存在空口令或弱口令账户，并可以登录。","compensation_measure":"如采用双因素认证等管控手段，恶意用户使用该空/弱口令帐号无法直接登录相关设备，且空/弱口令已整改，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":16,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"身份鉴别","requirement_detail":"b) 身份鉴别可采用密码技术实现，若只采用“用户名+口令”鉴别方式，用户口令须由大小写英文字母、数字、特殊字符3种以上组成、长度不少于8位，每90天更换。\n一、网络设备、安全设备、服务器、中间件、数据库、终端及应用系统。\n二、应用系统：通过渗透测试或常用/弱口令尝试，发现应用系统中存在可被登录弱口令帐户。","judge_condition":"满足条件（同时）：\n1.未采用密码技术。\n2.存在空口令或弱口令帐户。","compensation_measure":"如采用双因素认证等管控手段，恶意用户使用该空/弱口令帐号无法直接登录相关设备，且空/弱口令已整改，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":17,"is_important":true,"requirement_item":"安全计算环境","requirement_subitem":"身份鉴别","requirement_detail":"d) *应启用登录失败处理功能，登录失败后采取结束会话、限制非法登录次数和自动退出等措施，连续5次登录失败至少锁定10分钟。","judge_condition":"满足条件（同时）：\n1.可通过远程登录。\n2.对连续登录失败无任何处理措施。\n3.攻击者可利用登录界面进行口令猜测。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":18,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"身份鉴别","requirement_detail":"e) 当进行远程管理时，应采取SSH、HTTPS等方式防止管理数据、鉴别信息在网络传输过程中被窃听。","judge_condition":"满足条件（同时）：\n1.通过不可控网络环境远程进行管理。\n2.管理帐户口令以明文方式传输。\n3.使用截获的帐号可远程登录。","compensation_measure":"1.如整个远程管理过程中，只能使用加密传输通道进行鉴别信息传输的，可视同符合。\n2.如采用多因素身份认证、访问地址限定、仅允许内部可控网络进行访问的措施时，窃听到口令而无法直接进行远程登录的，可判定为部分符合。\n3.如通过其他技术管控手段（如准入控制、桌面管理、行为管理等），降低数据窃听隐患的，可判定为部分符合。\n4.在有管控措施的情况下，如果默认采用加密进行管理，但同时也开启非加密管理方式，可根据实际管理情况，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":19,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"身份鉴别","requirement_detail":"f) 应为与全国中心之间进行通信的计算设备、安全防护设备实现双向身份标识认证，保障与全国中心间的传输安全。","judge_condition":"部站通信的计算设备、安全防护设备未实现双向身份认证，如基于数字证书的双向认证。","compensation_measure":"部站通信通过IP+MAC绑定的白名单，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":20,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"访问控制","requirement_detail":"a) 应对直接访问网络、服务器、中间件、数据库、终端及应用等计算环境的用户分配账户和权限。","judge_condition":"可通过直接访问URL等方式，在不登录系统的情况下，非授权访问系统重要功能模块。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":21,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"访问控制","requirement_detail":"b) 应禁用“超级管理员”权限，重命名或删除默认账户，修改默认账户的默认口令。","judge_condition":"满足条件（同时）：\n1.未修改默认帐户的默认口令。\n2.可使用该默认口令账号登录。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":22,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"访问控制","requirement_detail":"c) 应及时删除或停用多余的、过期的账户，避免共享账户的存在。","judge_condition":"存在多余的、过期的账户。","compensation_measure":"即时整改，可视同符合。","detection_result":"","conclusion":""},
-    {"id":23,"is_important":true,"requirement_item":"安全计算环境","requirement_subitem":"安全审计","requirement_detail":"a) *启用网络、服务器、中间件、数据库、终端及应用等计算设备安全审计功能，审计覆盖到每个用户，对重要的用户行为和重要安全事件进行审计。","judge_condition":"满足条件（同时）：\n1.重要核心网络设备、安全设备、操作系统、数据库等未开启任何审计功能，无法对用户的重要行为进行审计。\n2.无其他技术手段对重要的用户行为和重要安全事件进行溯源。","compensation_measure":"a) 如使用堡垒机或其他第三方审计工具进行日志审计，能有效记录用户行为和重要安全事件，可视同符合。\nb) 如通过其他技术或管理手段能对事件进行溯源的，可视同符合。","detection_result":"","conclusion":""},
-    {"id":24,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"安全审计","requirement_detail":"b) 审计日志应包括事件的日期和时间、用户、事件类型、事件是否成功及其他与审计相关的信息。","judge_condition":"满足条件：\n审计记录不完整。","compensation_measure":"其他具有安全审计功能的设备具有审计记录。可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":25,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"安全审计","requirement_detail":"c) 应对审计记录进行保护，定期备份。","judge_condition":"满足条件：\n审计记录未定期备份。","compensation_measure":"安全管理中心对审计记录进行集中管理，可视同符合。","detection_result":"","conclusion":""},
-    {"id":26,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"安全审计","requirement_detail":"d) *审计记录留存6个月以上。","judge_condition":"满足条件（任意条件）：\n1.审计记录未留存6个月。\n2.审计记录存储空间不足以存储6个月。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":27,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"入侵防范","requirement_detail":"a) 服务器、终端等应遵循最小安装的原则，仅安装需要的组件和应用程序。","judge_condition":"满足条件：\n存在不必要的组件或程序。","compensation_measure":"删除或卸载相应程序或组件，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":28,"is_important":true,"requirement_item":"安全计算环境","requirement_subitem":"入侵防范","requirement_detail":"b) *应关闭不需要的系统服务、默认共享和高危端口。","judge_condition":"满足条件：\n操作系统上的多余系统服务/默认共享/高危端口存在可被利用的高风险漏洞或重大安全隐患。","compensation_measure":"通过防火墙、入侵防御等防护设备关闭、阻断对默认共享和高危端口访问，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":29,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"入侵防范","requirement_detail":"c) 应通过设定终端接入方式或网络地址范围对通过网络进行管理的管理终端进行限制。","judge_condition":"满足条件（同时）：\na) 可通过不可控网络环境远程进行管理。\nb) 未采取技术手段对管理终端进行管控（管控措施包括但不限于终端接入管控、网络地址范围限制、堡垒机等）。","compensation_measure":"如管理终端部署在运维区、可控网络或采用多种身份鉴别方式等技术措施，可降低终端管控不善所带来的安全风险的，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":30,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"入侵防范","requirement_detail":"d) 应严格对U盘、移动光驱等外来介质设备的管控，并对各类硬件设备的外接存储接口进行限制或移除。","judge_condition":"满足条件：\n未对各类硬件设备的外接存储接口进行限制或移除。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":31,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"恶意代码防范","requirement_detail":"a) 通过安装防恶意代码软件，并及时更新防恶意代码软件版本和恶意代码库，实现对恶意代码的有效防范。","judge_condition":"满足条件（任意条件）：\n1.Windows操作系统未安装杀毒软件。\n2.Windows操作系统安装的杀毒软件病毒库一个月以上未更新至最新病毒库版本。","compensation_measure":"1.如有完备的补丁更新/测试计划，且有历史计划执行记录的，可判定为部分符合。\n2.可与网络层的入侵防范和访问控制措施相结合来综合评定风险，如网络层部署了恶意代码防范设备，可判定为部分符合。\n3.如具备管控十分严格的网络环境、USB介质等管控措施较好，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":32,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"恶意代码防范","requirement_detail":"b) 主机防恶意代码产品应具有与网络防恶意代码产品不同的恶意代码库，支持防恶意代码的统一升级和管理。","judge_condition":"满足条件：\n主机防恶意代码产品与网络防恶意代码产品为同一品牌或使用相同的恶意代码库。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":33,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"数据完整性","requirement_detail":"a) 采用校验码技术或密码技术保证重要数据在传输和存储过程中的完整性，并在检测到完整性错误时采取必要的恢复措施，包括但不限于关键业务数据（交易数据等）和服务支持数据（基础数据、费率数据、黑名单数据、稽查数据、车辆图像数据等）等。如使用密码技术，密码算法应符合国家密码管理局相关规范要求。","judge_condition":"满足条件（任意条件）：\n1.数据在传输和存储过程中无任何完整性保护措施。\n2.若使用密码技术，如使用AES、DES、3DES、RSA等。","compensation_measure":"在数据完整性受到破坏时能够实施数据重传，并对存储的数据采取多重备份，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":34,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"数据保密性","requirement_detail":"a) 应采用密码技术保证收费站重要数据(业务数据、鉴别信息)在传输过程中的保密性；密码算法应符合国家密码管理局相关规范要求。","judge_condition":"满足条件（任意条件）：\n1.用户鉴别信息、重要业务数据等以明文方式在不可控网络中传输。\n2.若使用密码技术，如使用AES、DES、3DES、RSA等。","compensation_measure":"如使用国家主管部门认可的网络加密的技术确保数据在加密通道中传输，可根据实际情况，可视同符合。","detection_result":"","conclusion":""},
-    {"id":35,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"数据保密性","requirement_detail":"a) 应采用密码技术保证收费站重要数据(业务数据、鉴别信息)在存储过程中的保密性；密码算法应符合国家密码管理局相关规范要求。","judge_condition":"满足条件（任意条件）：\n1.用户身份认证信息等以明文方式存储。\n2.无其他有效数据保护措施。\n3.若使用密码技术，如使用AES、DES、3DES、RSA等。","compensation_measure":"如采取区域隔离、部署数据库防火墙、数据防泄露产品等安全防护措施的，可对通过分析造成信息泄露的难度和影响程度，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":36,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"数据备份恢复","requirement_detail":"a) 提供关键业务数据（交易数据等）和服务支持数据（基础数据、费率数据、黑名单数据、稽查数据、车辆图像数据等）的本地或异地数据备份与恢复功能，每周至少进行一次全备份，每天进行增量备份。","judge_condition":"满足条件：\n应用系统未提供任何数据备份措施，一旦遭受数据破坏，无法进行数据恢复。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":37,"is_important":false,"requirement_item":"安全物理环境","requirement_subitem":"","requirement_detail":"应具备防水、防潮、防尘设计，防护等级应不低于IP55。","judge_condition":"满足条件：\n无法提供证明材料。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":38,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"接入控制","requirement_detail":"应提供设备认证能力，保证只有授权的设备可以接入。","judge_condition":"满足条件：\n未通过部署接入防护设备实现对RSU、车牌图像识别等设备的IP/MAC地址等属性信息的注册管理，以及与部、省联网中心之间基于国产密码算法数字证书的可信身份认证。","compensation_measure":"制定严格的设备管理接入制度，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":39,"is_important":false,"requirement_item":"安全区域边界","requirement_subitem":"入侵防范","requirement_detail":"应能够限制与设备通信的目标地址，以避免对陌生地址的攻击行为。","judge_condition":"满足条件：\n设备可以与目标地址以外的地址进行通信。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":40,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"a) 应保证只有授权的用户可以对设备上的软件应用进行配置或变更。","judge_condition":"满足条件：\n登录网络、服务器、中间件、数据库、终端及应用等计算环境的用户存在空口令或弱口令账户，并可以登录。","compensation_measure":"如采用双因素认证等管控手段，恶意用户使用该空/弱口令帐号无法直接登录相关设备，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":41,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"b) 设备的合法用户应具有统一的用户标识、不得使用默认口令。","judge_condition":"满足条件（同时）：\n1.未修改默认帐户的默认口令。\n2.可使用该默认口令账号登录。\n一、网络设备、安全设备、服务器、中间件、数据库、终端及应用系统。\n二、应用系统：通过渗透测试或常用/弱口令尝试，发现应用系统中存在可被登录弱口令帐户。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":42,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"c) 若只用“用户名+口令”的鉴别方式进行身份鉴别，则应使用具有一定复杂度的用户口令（用户口令须由大小写英文字母、数字、特殊字符3种以上组成、长度不少于8位），90天进行更新。","judge_condition":"满足条件（同时）：\n1.未采用密码技术。\n2.存在空口令或弱口令帐户。\n一、网络设备、安全设备、服务器、中间件、数据库、终端及应用系统。\n二、应用系统：通过渗透测试或常用/弱口令尝试，发现应用系统中存在可被登录弱口令帐户。","compensation_measure":"如采用双因素认证等管控手段，恶意用户使用该空/弱口令帐号无法直接登录相关设备，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":43,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"d) 具有登录失败和登录超时处理功能，连续 5 次登录失败至少锁定 10 分钟。","judge_condition":"满足条件（同时）：\n1.可通过远程登录。\n2.对连续登录失败无任何处理措施。\n3.攻击者可利用登录界面进行口令猜测。","compensation_measure":"无。","detection_result":"","conclusion":""},
-    {"id":44,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"4) 若只用“用户名+口令”的鉴别方式进行身份鉴别，则应使用具有一定复杂度的用户口令（用户口令须由大小写英文字母、数字、特殊字符3种以上组成、长度不少于8位），90天进行更新。","judge_condition":"满足条件（同时）：\n1.通过不可控网络环境远程进行管理。\n2.管理帐户口令以明文方式传输。\n3.使用截获的帐号可远程登录。","compensation_measure":"1.如整个远程管理过程中，只能使用加密传输通道进行鉴别信息传输的，可视同符合。\n2.如采用多因素身份认证、访问地址限定、仅允许内部可控网络进行访问的措施时，窃听到口令而无法直接进行远程登录的，可判定为部分符合。\n3.如通过其他技术管控手段（如准入控制、桌面管理、行为管理等），降低数据窃听隐患的，可判定为部分符合。\n4.在有管控措施的情况下，如果默认采用加密进行管理，但同时也开启非加密管理方式，可根据实际管理情况，可判定为部分符合。","detection_result":"","conclusion":""},
-    {"id":45,"is_important":false,"requirement_item":"安全计算环境","requirement_subitem":"设备安全","requirement_detail":"f) 设备应支持远程集中管控。","judge_condition":"不支持远程集中管控。","compensation_measure":"无。","detection_result":"","conclusion":""}
-  ]
+// 测评项数据：从后端 收费.toml 加载，初始为空
+const checklist = ref<CheckList>({ title: '', version: '', items: [] });
+const checklistLoading = ref(false);
+const checklistError = ref('');
+
+// 项目 TOML：当前项目名、项目列表、新建项目名、提示信息
+const currentProjectName = ref('');
+const projectList = ref<string[]>([]);
+const newProjectName = ref('');
+const projectMessage = ref('');
+const projectMessageType = ref<'success' | 'error'>('success');
+
+// 从后端加载测评项（读取 resources/收费.toml）
+async function fetchChecklist() {
+  checklistLoading.value = true;
+  checklistError.value = '';
+  try {
+    const data = await invoke<CheckList>('load_checklist', { name: '收费' });
+    checklist.value = data;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    checklistError.value = `加载测评项失败：${msg}`;
+    checklist.value = { title: '', version: '', items: [] };
+  } finally {
+    checklistLoading.value = false;
+  }
+}
+
+// 列出已有项目
+async function refreshProjectList() {
+  try {
+    const list = await invoke<string[]>('list_project_names');
+    projectList.value = list ?? [];
+  } catch {
+    projectList.value = [];
+  }
+}
+
+// 创建项目：生成 projects/{name}.toml，并加载到当前表单
+async function handleCreateProject() {
+  const name = newProjectName.value.trim();
+  if (!name) return;
+  projectMessage.value = '';
+  try {
+    await invoke('create_project', { name });
+    await refreshProjectList();
+    currentProjectName.value = name;
+    await handleLoadProject();
+    projectMessage.value = `已创建并加载项目：${name}`;
+    projectMessageType.value = 'success';
+    newProjectName.value = '';
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    projectMessage.value = `创建失败：${msg}`;
+    projectMessageType.value = 'error';
+  }
+  setTimeout(() => { projectMessage.value = ''; }, 3000);
+}
+
+// 加载项目：从 projects/{name}.toml 读入并回填表单
+async function handleLoadProject() {
+  const name = currentProjectName.value;
+  if (!name) return;
+  projectMessage.value = '';
+  try {
+    const payload = await invoke<{ template_data: TemplateData; checklist: CheckList }>('load_project', { name });
+    templateData.value = payload.template_data;
+    checklist.value = payload.checklist;
+    projectMessage.value = `已加载项目：${name}`;
+    projectMessageType.value = 'success';
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    projectMessage.value = `加载失败：${msg}`;
+    projectMessageType.value = 'error';
+  }
+  setTimeout(() => { projectMessage.value = ''; }, 3000);
+}
+
+// 保存到项目 TOML：将当前表单写入 projects/{name}.toml
+async function handleSaveToProject() {
+  const name = currentProjectName.value;
+  if (!name) {
+    submitResult.value = { type: 'error', message: '请先选择或创建项目' };
+    setTimeout(() => { submitResult.value = null; }, 3000);
+    return;
+  }
+  try {
+    isSubmitting.value = true;
+    submitResult.value = null;
+    const payload = {
+      template_data: templateData.value,
+      checklist: checklist.value,
+    };
+    const path = await invoke<string>('save_project', { name, payload });
+    submitResult.value = { type: 'success', message: `已保存到：${path}` };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    submitResult.value = { type: 'error', message: `保存失败：${msg}` };
+  } finally {
+    isSubmitting.value = false;
+    setTimeout(() => { submitResult.value = null; }, 3000);
+  }
+}
+
+onMounted(() => {
+  fetchChecklist();
+  refreshProjectList();
 });
 
 // 处理提交
@@ -278,10 +364,81 @@ const handleSubmit = async () => {
   color: #3b82f6;
 }
 
+.project-bar {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.project-row:last-of-type {
+  margin-bottom: 0;
+}
+.project-label {
+  font-size: 14px;
+  color: #4b5563;
+  min-width: 80px;
+}
+.project-select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 180px;
+}
+.project-input {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  flex: 1;
+  max-width: 280px;
+}
+.btn-primary {
+  padding: 6px 16px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-primary:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  padding: 6px 16px;
+  background: #fff;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-secondary:disabled {
+  color: #93c5fd;
+  border-color: #93c5fd;
+  cursor: not-allowed;
+}
+.project-message {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.project-message.success { color: #16a34a; }
+.project-message.error { color: #dc2626; }
+
 .submit-btn-wrapper {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+  gap: 12px;
 }
 
 .submit-btn {
@@ -294,6 +451,11 @@ const handleSubmit = async () => {
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+.submit-btn.outline {
+  background: #fff;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
 }
 
 .submit-btn:disabled {
@@ -338,5 +500,16 @@ const handleSubmit = async () => {
 
 .mt-20 {
   margin-top: 20px;
+}
+
+.checklist-loading {
+  color: #6b7280;
+  padding: 20px;
+}
+.checklist-error {
+  color: #dc2626;
+  padding: 20px;
+  background: #fee2e2;
+  border-radius: 4px;
 }
 </style>
