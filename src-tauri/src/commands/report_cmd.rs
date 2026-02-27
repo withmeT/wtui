@@ -1,22 +1,20 @@
-use crate::report::insert_toml::{create_template, load_config};
-use crate::report::template::{
-    AssetInfo, Checklist, ChecklistItem, CommonRequirements, Config, Device, TemplateConfig,
-};
-use crate::report::project::{
-    create_project_toml, load_project_toml, save_project_toml,
-};
-use crate::report::template::TemplateError;
-use crate::commands::report_dto::DynamicConfig;
 use crate::commands::grid_check_dto::{
     AssetInfo as DtoAssetInfo, BaseInfo, ChargeCommon, CheckItem as DtoCheckItem,
     CheckList as DtoCheckList, EtcCommon, GridCheckPayload, MainProblem, ReportConclusion,
     SampleScope, SystemInfo, TemplateData as DtoTemplateData, UnitInfo, VulnResult,
 };
+use crate::commands::report_dto::DynamicConfig;
+use crate::report::insert_toml::{create_template, load_config};
+use crate::report::project::{create_project_toml, load_project_toml, save_project_toml};
+use crate::report::template::TemplateError;
+use crate::report::template::{
+    AssetInfo, Checklist, ChecklistItem, CommonRequirements, Config, Device, TemplateConfig,
+};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
-use tauri::Manager;
 use std::path::PathBuf;
+use tauri::Manager;
 
 fn parse_json_value(s: &str) -> serde_json::Value {
     serde_json::from_str(s).unwrap_or_else(|_| json!({}))
@@ -39,7 +37,11 @@ fn payload_to_config_and_checklist(payload: &GridCheckPayload) -> (Config, Check
         }),
         系统信息: json!({ "系统名称": td.系统信息.系统名称 }),
         报告结论: json!({ "结论": td.报告结论.结论 }),
-        主要问题: if td.主要问题.问题.is_empty() { json!([]) } else { json!([td.主要问题.问题]) },
+        主要问题: if td.主要问题.问题.is_empty() {
+            json!([])
+        } else {
+            json!([td.主要问题.问题])
+        },
         漏洞扫描结果: json!({ "结果": td.漏洞扫描结果.结果 }),
         抽检系统范围: parse_json_value(td.抽检系统范围.对象.as_str()),
         资产情况: AssetInfo {
@@ -75,7 +77,12 @@ fn payload_to_config_and_checklist(payload: &GridCheckPayload) -> (Config, Check
     };
     let checklist = Checklist {
         title: payload.checklist.title.clone(),
-        version: payload.checklist.version.as_deref().unwrap_or("").to_string(),
+        version: payload
+            .checklist
+            .version
+            .as_deref()
+            .unwrap_or("")
+            .to_string(),
         items: payload
             .checklist
             .items
@@ -102,7 +109,10 @@ fn config_and_checklist_to_payload(
 ) -> (DtoTemplateData, DtoCheckList) {
     use crate::commands::grid_check_dto::*;
     let get_str = |v: &serde_json::Value, key: &str| {
-        v.get(key).and_then(|x| x.as_str()).unwrap_or("").to_string()
+        v.get(key)
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string()
     };
     let arr_first = |v: &serde_json::Value| {
         v.as_array()
@@ -126,11 +136,15 @@ fn config_and_checklist_to_payload(
         },
         资产情况: DtoAssetInfo {
             机房: serde_json::to_string(&config.资产情况.机房).unwrap_or_else(|_| "{}".into()),
-            网络设备: serde_json::to_string(&config.资产情况.网络设备).unwrap_or_else(|_| "[]".into()),
-            安全设备: serde_json::to_string(&config.资产情况.安全设备).unwrap_or_else(|_| "[]".into()),
-            服务器: serde_json::to_string(&config.资产情况.服务器).unwrap_or_else(|_| "[]".into()),
+            网络设备: serde_json::to_string(&config.资产情况.网络设备)
+                .unwrap_or_else(|_| "[]".into()),
+            安全设备: serde_json::to_string(&config.资产情况.安全设备)
+                .unwrap_or_else(|_| "[]".into()),
+            服务器: serde_json::to_string(&config.资产情况.服务器)
+                .unwrap_or_else(|_| "[]".into()),
             终端: serde_json::to_string(&config.资产情况.终端).unwrap_or_else(|_| "[]".into()),
-            业务应用系统: serde_json::to_string(&config.资产情况.业务应用系统).unwrap_or_else(|_| "[]".into()),
+            业务应用系统: serde_json::to_string(&config.资产情况.业务应用系统)
+                .unwrap_or_else(|_| "[]".into()),
         },
         收费通用要求: ChargeCommon {
             物理环境: get_str(&config.收费通用要求.物理环境, "描述"),
@@ -154,29 +168,31 @@ fn config_and_checklist_to_payload(
             问题: arr_first(&config.主要问题),
         },
     };
-    let checklist_dto = checklist.map(|c| DtoCheckList {
-        title: c.title.clone(),
-        version: Some(c.version.clone()),
-        items: c
-            .items
-            .iter()
-            .map(|i| DtoCheckItem {
-                id: i.id,
-                is_important: i.is_important,
-                requirement_item: i.requirement_item.clone(),
-                requirement_subitem: Some(i.requirement_subitem.clone()),
-                requirement_detail: i.requirement_detail.clone(),
-                judge_condition: i.judge_condition.clone(),
-                compensation_measure: i.compensation_measure.clone(),
-                detection_result: i.detection_result.clone(),
-                conclusion: i.conclusion.clone(),
-            })
-            .collect(),
-    }).unwrap_or_else(|| DtoCheckList {
-        title: String::new(),
-        version: None,
-        items: vec![],
-    });
+    let checklist_dto = checklist
+        .map(|c| DtoCheckList {
+            title: c.title.clone(),
+            version: Some(c.version.clone()),
+            items: c
+                .items
+                .iter()
+                .map(|i| DtoCheckItem {
+                    id: i.id,
+                    is_important: i.is_important,
+                    requirement_item: i.requirement_item.clone(),
+                    requirement_subitem: Some(i.requirement_subitem.clone()),
+                    requirement_detail: i.requirement_detail.clone(),
+                    judge_condition: i.judge_condition.clone(),
+                    compensation_measure: i.compensation_measure.clone(),
+                    detection_result: i.detection_result.clone(),
+                    conclusion: i.conclusion.clone(),
+                })
+                .collect(),
+        })
+        .unwrap_or_else(|| DtoCheckList {
+            title: String::new(),
+            version: None,
+            items: vec![],
+        });
     (template_data, checklist_dto)
 }
 
@@ -184,10 +200,7 @@ fn config_and_checklist_to_payload(
 #[tauri::command]
 pub fn create_temp(name: &str) -> String {
     match create_template(name) {
-        Ok(file_path) => format!(
-            "✅ 创建成功！配置文件已生成{}",
-            file_path
-        ),
+        Ok(file_path) => format!("✅ 创建成功！配置文件已生成{}", file_path),
         Err(e) => format!("❌ 创建失败：{}", e),
     }
 }
@@ -196,9 +209,7 @@ pub fn create_temp(name: &str) -> String {
 #[tauri::command]
 pub fn load_conf(name: &str) -> String {
     match load_config(name) {
-        Ok(_toml_config) => format!(
-            "✅ 配置文件加载成功"
-        ),
+        Ok(_toml_config) => format!("✅ 配置文件加载成功"),
         Err(e) => format!("❌ 配置文件失败：{}", e),
     }
 }
@@ -210,28 +221,24 @@ pub fn load_template_toml(app: tauri::AppHandle, name: &str) -> Result<String, S
     let toml_content = if let Ok(resource_path) = app.path().resource_dir() {
         let prod_path = resource_path.join(format!("{}.toml", name));
         if prod_path.exists() {
-            fs::read_to_string(&prod_path)
-                .map_err(|e| format!("读取 toml 失败: {}", e))?
+            fs::read_to_string(&prod_path).map_err(|e| format!("读取 toml 失败: {}", e))?
         } else {
             // 开发环境路径
             let dev_path = PathBuf::from("resources").join(format!("{}.toml", name));
-            fs::read_to_string(&dev_path)
-                .map_err(|e| format!("读取 toml 失败: {}", e))?
+            fs::read_to_string(&dev_path).map_err(|e| format!("读取 toml 失败: {}", e))?
         }
     } else {
         // 开发环境路径
         let dev_path = PathBuf::from("resources").join(format!("{}.toml", name));
-        fs::read_to_string(&dev_path)
-            .map_err(|e| format!("读取 toml 失败: {}", e))?
+        fs::read_to_string(&dev_path).map_err(|e| format!("读取 toml 失败: {}", e))?
     };
-    
+
     // 解析 TOML
-    let config: TemplateConfig = toml::from_str(&toml_content)
-        .map_err(|e| format!("解析 TOML 失败: {}", e))?;
-    
+    let config: TemplateConfig =
+        toml::from_str(&toml_content).map_err(|e| format!("解析 TOML 失败: {}", e))?;
+
     // 转换为 JSON 返回
-    serde_json::to_string(&config)
-        .map_err(|e| format!("转换 JSON 失败: {}", e))
+    serde_json::to_string(&config).map_err(|e| format!("转换 JSON 失败: {}", e))
 }
 
 // 加载测评项清单（如 收费.toml），返回第一个 checklist 供前端展示
@@ -240,21 +247,18 @@ pub fn load_checklist(app: tauri::AppHandle, name: &str) -> Result<Checklist, St
     let toml_content = if let Ok(resource_path) = app.path().resource_dir() {
         let prod_path = resource_path.join(format!("{}.toml", name));
         if prod_path.exists() {
-            fs::read_to_string(&prod_path)
-                .map_err(|e| format!("读取 toml 失败: {}", e))?
+            fs::read_to_string(&prod_path).map_err(|e| format!("读取 toml 失败: {}", e))?
         } else {
             let dev_path = PathBuf::from("resources").join(format!("{}.toml", name));
-            fs::read_to_string(&dev_path)
-                .map_err(|e| format!("读取 toml 失败: {}", e))?
+            fs::read_to_string(&dev_path).map_err(|e| format!("读取 toml 失败: {}", e))?
         }
     } else {
         let dev_path = PathBuf::from("resources").join(format!("{}.toml", name));
-        fs::read_to_string(&dev_path)
-            .map_err(|e| format!("读取 toml 失败: {}", e))?
+        fs::read_to_string(&dev_path).map_err(|e| format!("读取 toml 失败: {}", e))?
     };
 
-    let config: TemplateConfig = toml::from_str(&toml_content)
-        .map_err(|e| format!("解析 TOML 失败: {}", e))?;
+    let config: TemplateConfig =
+        toml::from_str(&toml_content).map_err(|e| format!("解析 TOML 失败: {}", e))?;
 
     config
         .checklist
@@ -293,8 +297,7 @@ pub fn load_dynamic_config(name: &str) -> Result<DynamicConfig, String> {
     let base_dir = PathBuf::from("data");
     let path = base_dir.join(format!("{}.json", name));
 
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("读取配置失败: {}", e))?;
+    let content = fs::read_to_string(&path).map_err(|e| format!("读取配置失败: {}", e))?;
 
     let config: DynamicConfig =
         serde_json::from_str(&content).map_err(|e| format!("解析 JSON 失败: {}", e))?;
@@ -343,8 +346,10 @@ fn read_resource_toml(app: &tauri::AppHandle, name: &str) -> Result<String, Stri
 /// 创建项目：生成 projects/{name}.toml（基于 template.toml + 收费.toml 测评项，结果为空）
 #[tauri::command]
 pub fn create_project(app: tauri::AppHandle, name: &str) -> Result<String, String> {
-    let content = read_resource_toml(&app, "收费")?;
-    let path = create_project_toml(name, &content).map_err(|e: TemplateError| e.to_string())?;
+    let template = read_resource_toml(&app, "template")?;
+    let checklist = read_resource_toml(&app, "收费")?;
+    let path = create_project_toml(name, &template, &checklist)
+        .map_err(|e: TemplateError| e.to_string())?;
     Ok(path.display().to_string())
 }
 
@@ -352,15 +357,18 @@ pub fn create_project(app: tauri::AppHandle, name: &str) -> Result<String, Strin
 #[tauri::command]
 pub fn save_project(name: &str, payload: GridCheckPayload) -> Result<String, String> {
     let (config, checklist) = payload_to_config_and_checklist(&payload);
-    let path = save_project_toml(name, config, checklist).map_err(|e: TemplateError| e.to_string())?;
+    let path =
+        save_project_toml(name, config, checklist).map_err(|e: TemplateError| e.to_string())?;
     Ok(path.display().to_string())
 }
 
 /// 加载项目：读取 projects/{name}.toml，返回 { templateData, checklist } 供前端回填
 #[tauri::command]
 pub fn load_project(name: &str) -> Result<GridCheckPayload, String> {
-    let (config, checklist_opt) = load_project_toml(name).map_err(|e: TemplateError| e.to_string())?;
-    let (template_data, checklist_dto) = config_and_checklist_to_payload(&config, checklist_opt.as_ref());
+    let (config, checklist_opt) =
+        load_project_toml(name).map_err(|e: TemplateError| e.to_string())?;
+    let (template_data, checklist_dto) =
+        config_and_checklist_to_payload(&config, checklist_opt.as_ref());
     Ok(GridCheckPayload {
         template_data,
         checklist: checklist_dto,
