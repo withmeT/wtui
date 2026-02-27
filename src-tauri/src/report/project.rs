@@ -1,12 +1,11 @@
 //! 项目 TOML：创建、保存、加载（与 template.toml 同构 + checklist）
 
-use crate::report::template::{Checklist, Config, ProjectToml, TemplateConfig};
 use crate::report::template::TemplateError;
+use crate::report::template::{Checklist, Config, ProjectToml, TemplateConfig};
 use std::fs;
 use std::path::PathBuf;
 
 const PROJECTS_DIR: &str = "projects";
-const TEMPLATE_TOML: &str = "template.toml";
 
 fn projects_dir() -> PathBuf {
     PathBuf::from(PROJECTS_DIR)
@@ -16,19 +15,12 @@ pub fn project_path(name: &str) -> PathBuf {
     projects_dir().join(format!("{}.toml", name))
 }
 
-/// 读取 template.toml 得到 Config
-fn load_template_config() -> Result<Config, TemplateError> {
-    for path in &[TEMPLATE_TOML, "src-tauri/template.toml"] {
-        let p = PathBuf::from(path);
-        if p.exists() {
-            let mut content = fs::read_to_string(&p)?;
-            content = content.replace("\r\n", "\n").replace("\r", "\n");
-            return toml::from_str(&content).map_err(Into::into);
-        }
-    }
-    Err(TemplateError::TemplateNotFound(
-        "template.toml 不存在（请放在项目根或 src-tauri/ 下）".into(),
-    ))
+/// 从 template.toml 内容解析 Config
+fn parse_template_config(template_toml_content: &str) -> Result<Config, TemplateError> {
+    let normalized = template_toml_content
+        .replace("\r\n", "\n")
+        .replace("\r", "\n");
+    toml::from_str(&normalized).map_err(Into::into)
 }
 
 /// 从 收费.toml 内容解析出第一个 checklist 并清空 detection_result/conclusion
@@ -47,11 +39,15 @@ fn parse_empty_checklist(toml_content: &str) -> Result<Checklist, TemplateError>
 }
 
 /// 创建新项目：template.toml 结构 + 收费.toml 的测评项（结果为空）
-pub fn create_project_toml(name: &str, checklist_toml_content: &str) -> Result<PathBuf, TemplateError> {
+pub fn create_project_toml(
+    name: &str,
+    template_toml_content: &str,
+    checklist_toml_content: &str,
+) -> Result<PathBuf, TemplateError> {
     let dir = projects_dir();
     fs::create_dir_all(&dir)?;
     let path = project_path(name);
-    let config = load_template_config()?;
+    let config = parse_template_config(template_toml_content)?;
     let checklist = parse_empty_checklist(checklist_toml_content)?;
     let project = ProjectToml {
         config,
@@ -63,7 +59,11 @@ pub fn create_project_toml(name: &str, checklist_toml_content: &str) -> Result<P
 }
 
 /// 保存项目：写入 Config + Checklist 到 projects/{name}.toml
-pub fn save_project_toml(name: &str, config: Config, checklist: Checklist) -> Result<PathBuf, TemplateError> {
+pub fn save_project_toml(
+    name: &str,
+    config: Config,
+    checklist: Checklist,
+) -> Result<PathBuf, TemplateError> {
     let dir = projects_dir();
     fs::create_dir_all(&dir)?;
     let path = project_path(name);
@@ -80,9 +80,10 @@ pub fn save_project_toml(name: &str, config: Config, checklist: Checklist) -> Re
 pub fn load_project_toml(name: &str) -> Result<(Config, Option<Checklist>), TemplateError> {
     let path = project_path(name);
     if !path.exists() {
-        return Err(TemplateError::TemplateNotFound(
-            format!("项目不存在: {}", path.display()),
-        ));
+        return Err(TemplateError::TemplateNotFound(format!(
+            "项目不存在: {}",
+            path.display()
+        )));
     }
     let mut content = fs::read_to_string(&path)?;
     content = content.replace("\r\n", "\n").replace("\r", "\n");
