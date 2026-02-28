@@ -1,4 +1,4 @@
-[checklist]
+[[checklist]]
 title = "联网收费系统省域系统并网接入网络安全检测规程 - 收费站通用要求及物联网安全扩展要求"
 version = "1.0"
 
@@ -279,7 +279,7 @@ conclusion = ""
 
 [[checklist.items]]
 id = 26
-is_important = false
+is_important = true
 requirement_item = "安全计算环境"
 requirement_subitem = "安全审计"
 requirement_detail = "d) *审计记录留存6个月以上。"
@@ -401,7 +401,7 @@ conclusion = ""
 [[checklist.items]]
 id = 37
 is_important = false
-requirement_item = "安全物理环境"
+requirement_item = "安全物理环境-物联网扩展"
 requirement_subitem = ""
 requirement_detail = "应具备防水、防潮、防尘设计，防护等级应不低于IP55。"
 judge_condition = "满足条件：\n无法提供证明材料。"
@@ -412,7 +412,7 @@ conclusion = ""
 [[checklist.items]]
 id = 38
 is_important = false
-requirement_item = "安全区域边界"
+requirement_item = "安全区域边界-物联网扩展"
 requirement_subitem = "接入控制"
 requirement_detail = "应提供设备认证能力，保证只有授权的设备可以接入。"
 judge_condition = "满足条件：\n未通过部署接入防护设备实现对RSU、车牌图像识别等设备的IP/MAC地址等属性信息的注册管理，以及与部、省联网中心之间基于国产密码算法数字证书的可信身份认证。"
@@ -423,7 +423,7 @@ conclusion = ""
 [[checklist.items]]
 id = 39
 is_important = false
-requirement_item = "安全区域边界"
+requirement_item = "安全区域边界-物联网扩展"
 requirement_subitem = "入侵防范"
 requirement_detail = "应能够限制与设备通信的目标地址，以避免对陌生地址的攻击行为。"
 judge_condition = "满足条件：\n设备可以与目标地址以外的地址进行通信。"
@@ -434,7 +434,7 @@ conclusion = ""
 [[checklist.items]]
 id = 40
 is_important = false
-requirement_item = "安全计算环境"
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "a) 应保证只有授权的用户可以对设备上的软件应用进行配置或变更。"
 judge_condition = "满足条件：\n登录网络、服务器、中间件、数据库、终端及应用等计算环境的用户存在空口令或弱口令账户，并可以登录。"
@@ -445,7 +445,7 @@ conclusion = ""
 [[checklist.items]]
 id = 41
 is_important = false
-requirement_item = "安全计算环境"
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "b) 设备的合法用户应具有统一的用户标识、不得使用默认口令。"
 judge_condition = "满足条件（同时）：\n1.未修改默认帐户的默认口令。\n2.可使用该默认口令账号登录。\n一、网络设备、安全设备、服务器、中间件、数据库、终端及应用系统。\n二、应用系统：通过渗透测试或常用/弱口令尝试，发现应用系统中存在可被登录弱口令帐户。"
@@ -456,7 +456,7 @@ conclusion = ""
 [[checklist.items]]
 id = 42
 is_important = false
-requirement_item = "安全计算环境"
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "c) 若只用“用户名+口令”的鉴别方式进行身份鉴别，则应使用具有一定复杂度的用户口令（用户口令须由大小写英文字母、数字、特殊字符3种以上组成、长度不少于8位），90天进行更新。"
 judge_condition = "满足条件（同时）：\n1.未采用密码技术。\n2.存在空口令或弱口令帐户。\n一、网络设备、安全设备、服务器、中间件、数据库、终端及应用系统。\n二、应用系统：通过渗透测试或常用/弱口令尝试，发现应用系统中存在可被登录弱口令帐户。"
@@ -466,8 +466,8 @@ conclusion = ""
 
 [[checklist.items]]
 id = 43
-is_important = false
-requirement_item = "安全计算环境"
+is_important = true
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "d) 具有登录失败和登录超时处理功能，连续 5 次登录失败至少锁定 10 分钟。"
 judge_condition = "满足条件（同时）：\n1.可通过远程登录。\n2.对连续登录失败无任何处理措施。\n3.攻击者可利用登录界面进行口令猜测。"
@@ -478,7 +478,7 @@ conclusion = ""
 [[checklist.items]]
 id = 44
 is_important = false
-requirement_item = "安全计算环境"
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "4) 若只用“用户名+口令”的鉴别方式进行身份鉴别，则应使用具有一定复杂度的用户口令（用户口令须由大小写英文字母、数字、特殊字符3种以上组成、长度不少于8位），90天进行更新。"
 judge_condition = "满足条件（同时）：\n1.通过不可控网络环境远程进行管理。\n2.管理帐户口令以明文方式传输。\n3.使用截获的帐号可远程登录。"
@@ -489,7 +489,7 @@ conclusion = ""
 [[checklist.items]]
 id = 45
 is_important = false
-requirement_item = "安全计算环境"
+requirement_item = "安全计算环境-物联网扩展"
 requirement_subitem = "设备安全"
 requirement_detail = "f) 设备应支持远程集中管控。"
 judge_condition = "不支持远程集中管控。"

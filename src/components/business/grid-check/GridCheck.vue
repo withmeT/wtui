@@ -46,13 +46,29 @@
 
       <!-- 检测要求模块 -->
       <div v-if="activeModule === 'check'">
+        <!-- 系统类型选择 -->
+        <div class="system-row">
+          <span class="system-label">系统类型：</span>
+          <select v-model="currentSystem" class="system-select">
+            <option value="收费">收费系统</option>
+            <option value="ETC">ETC系统</option>
+            <option value="路段中心">路段中心系统</option>
+          </select>
+          <span class="system-tip">切换后将加载对应模板的测评项</span>
+        </div>
+
         <p v-if="checklistLoading" class="checklist-loading">加载测评项中...</p>
         <p v-else-if="checklistError" class="checklist-error">{{ checklistError }}</p>
-        <CheckRequirement v-else :checklist="checklist" />
+        <CheckRequirement v-else :checklist="checklist" :templateData="templateData" />
       </div>
 
       <!-- 检测结果模块 -->
       <CheckResult v-if="activeModule === 'result'" :templateData="templateData" :checklist="checklist" />
+
+      <!-- 核查结果模块 -->
+      <div v-if="activeModule === 'review'">
+        <QuickReview :checklist="checklist" :templateData="templateData" />
+      </div>
 
       <!-- 保存到项目 TOML / 提交 -->
       <div class="submit-btn-wrapper">
@@ -96,13 +112,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import BaseInfo from './modules/BaseInfo.vue';
 import AssetInfo from './modules/AssetInfo.vue';
 import CheckRequirement from './modules/CheckRequirement.vue';
 import CheckResult from './modules/CheckResult.vue';
+import QuickReview from './modules/QuickReview.vue';
 import type { TabItem, TemplateData, CheckList, SubmitResult } from '@/types';
 
 // 模块标签
@@ -110,10 +127,12 @@ const moduleTabs = ref<TabItem[]>([
   { key: 'baseInfo', name: '基础信息' },
   { key: 'asset', name: '资产情况' },
   { key: 'check', name: '检测要求' },
-  { key: 'result', name: '检测结果' }
+  { key: 'result', name: '检测结果' },
+  { key: 'review', name: '核查结果' }
 ]);
 
 const activeModule = ref('baseInfo');
+const currentSystem = ref<'收费' | 'ETC' | '路段中心'>('收费');
 const isSubmitting = ref(false);
 const submitResult = ref<SubmitResult | null>(null);
 
@@ -179,7 +198,7 @@ async function fetchChecklist() {
   checklistLoading.value = true;
   checklistError.value = '';
   try {
-    const data = await invoke<CheckList>('load_checklist', { name: '收费' });
+    const data = await invoke<CheckList>('load_checklist', { name: currentSystem.value });
     checklist.value = data;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -298,6 +317,10 @@ async function handleGenerateReport() {
 onMounted(() => {
   fetchChecklist();
   refreshProjectList();
+});
+
+watch(currentSystem, () => {
+  fetchChecklist();
 });
 
 // 处理提交
@@ -549,5 +572,29 @@ const handleSubmit = async () => {
   padding: 20px;
   background: #fee2e2;
   border-radius: 4px;
+}
+
+.system-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.system-label {
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.system-select {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.system-tip {
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>
